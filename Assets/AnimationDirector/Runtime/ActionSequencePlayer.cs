@@ -197,11 +197,25 @@ namespace AnimationDirector
                 anchorTransform = keyframe.anchor.Resolve(transform);
             }
 
-            var instance = Instantiate(
-                keyframe.prefab,
-                anchorTransform.position,
-                anchorTransform.rotation,
-                anchorTransform);
+            GameObject instance;
+
+            if (keyframe.parentToAnchor)
+            {
+                // Spawn as child of the anchor so it moves with it.
+                instance = Instantiate(
+                    keyframe.prefab,
+                    anchorTransform.position,
+                    anchorTransform.rotation,
+                    anchorTransform);
+            }
+            else
+            {
+                // Spawn in world space (no parent) but at the anchor's position/rotation.
+                instance = Instantiate(
+                    keyframe.prefab,
+                    anchorTransform.position,
+                    anchorTransform.rotation);
+            }
 
             _spawnedInstances.Add(instance);
 
@@ -212,7 +226,7 @@ namespace AnimationDirector
 
             if (logActions)
             {
-                Debug.Log($"[ActionSequencePlayer] Spawned prefab '{keyframe.prefab.name}' at frame {keyframe.frame}.", this);
+                Debug.Log($"[ActionSequencePlayer] Spawned prefab '{keyframe.prefab.name}' at frame {keyframe.frame} (parented={keyframe.parentToAnchor}).", this);
             }
         }
 
@@ -259,9 +273,15 @@ namespace AnimationDirector
 
             target.SetActive(enabled);
 
+            if (enabled && keyframe.detachOnEnable)
+            {
+                // Detach so it no longer follows its previous parent, but keep world position.
+                target.transform.SetParent(null, true);
+            }
+
             if (logActions)
             {
-                Debug.Log($"[ActionSequencePlayer] Set '{target.name}' active={enabled} at frame {keyframe.frame}.", this);
+                Debug.Log($"[ActionSequencePlayer] Set '{target.name}' active={enabled} at frame {keyframe.frame} (detachOnEnable={keyframe.detachOnEnable}).", this);
             }
         }
 

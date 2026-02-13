@@ -550,6 +550,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1220848139}
     m_Modifications:
+    - target: {fileID: 1976360828952319648, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
+      propertyPath: looping
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6166639675024175333, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
+      propertyPath: looping
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6516556913553462587, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
       propertyPath: looping
       value: 0
@@ -594,12 +602,24 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7209849245890256745, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
+      propertyPath: looping
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7658239851851839345, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
+      propertyPath: looping
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8915312667134092580, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
       propertyPath: m_Name
       value: AoE slash green
       objectReference: {fileID: 0}
     - target: {fileID: 8915312667134092580, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
       propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9191532734909787767, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
+      propertyPath: looping
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []

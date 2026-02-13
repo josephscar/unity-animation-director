@@ -256,10 +256,12 @@ namespace AnimationDirector.Editor
             var typeProp = kfProp.FindPropertyRelative("type");
             var prefabProp = kfProp.FindPropertyRelative("prefab");
             var anchorProp = kfProp.FindPropertyRelative("anchor");
+            var parentToAnchorProp = kfProp.FindPropertyRelative("parentToAnchor");
             var lifetimeProp = kfProp.FindPropertyRelative("lifetime");
             var soundProp = kfProp.FindPropertyRelative("sound");
             var targetObjectProp = kfProp.FindPropertyRelative("targetObject");
             var targetIdProp = kfProp.FindPropertyRelative("targetId");
+            var detachOnEnableProp = kfProp.FindPropertyRelative("detachOnEnable");
 
             // Frame field
             EditorGUI.BeginChangeCheck();
@@ -294,6 +296,7 @@ namespace AnimationDirector.Editor
                 case ActionType.SpawnPrefab:
                     EditorGUILayout.PropertyField(prefabProp);
                     EditorGUILayout.PropertyField(anchorProp);
+                    EditorGUILayout.PropertyField(parentToAnchorProp, new GUIContent("Parent To Anchor"));
                     EditorGUILayout.PropertyField(lifetimeProp);
                     break;
 
@@ -305,6 +308,10 @@ namespace AnimationDirector.Editor
                 case ActionType.DisableObject:
                     EditorGUILayout.PropertyField(targetIdProp, new GUIContent("Target Id"));
                     EditorGUILayout.PropertyField(targetObjectProp, new GUIContent("Target Object (asset only)"));
+                    if (type == ActionType.EnableObject)
+                    {
+                        EditorGUILayout.PropertyField(detachOnEnableProp, new GUIContent("Detach On Enable"));
+                    }
                     break;
 
                 case ActionType.DestroySpawned:
