@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 91c3803da229fba458706ec9d9a953f8, type: 3}
-  m_Name: AnimationActionSequence
+  m_Name: Skelly_Rise
   m_EditorClassIdentifier: Assembly-CSharp::AnimationDirector.AnimationActionSequence
   targetClip: {fileID: 7400000, guid: e2dc479e75e16a2458ee4ef89e4cce1b, type: 2}
   keyframes:
-  - frame: 0
+  - frame: 11
     type: 0
     prefab: {fileID: 3992058561654064293, guid: 13c990b8270c70b4c9f196019286028c, type: 3}
     anchor:
