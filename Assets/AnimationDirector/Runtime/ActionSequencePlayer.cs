@@ -4,7 +4,8 @@ using UnityEngine;
 namespace AnimationDirector
 {
     /// <summary>
-    /// Plays an AnimationActionSequence in sync with an Animator's current clip.
+    /// Plays AnimationActionSequences in sync with an Animator's current clip.
+    /// Supports multiple sequences - automatically selects the sequence that matches the currently playing animation.
     /// Checks the current frame each Update and executes any matching keyframes once per playthrough.
     /// </summary>
     [DisallowMultipleComponent]
@@ -12,6 +13,12 @@ namespace AnimationDirector
     {
         [Header("References")]
         [SerializeField] private Animator animator;
+        
+        [Tooltip("List of animation action sequences. Each sequence should target a different AnimationClip. " +
+                 "The player will automatically use the sequence that matches the currently playing animation.")]
+        [SerializeField] private List<AnimationActionSequence> sequences = new List<AnimationActionSequence>();
+        
+        [Tooltip("(Legacy) Single sequence for backward compatibility. If set, it will be added to the sequences list.")]
         [SerializeField] private AnimationActionSequence sequence;
 
         [Header("Debug")]
@@ -22,9 +29,11 @@ namespace AnimationDirector
 
         // Runtime tracking
         private AnimationClip _clip;
+        private AnimationActionSequence _activeSequence; // Currently active sequence
         private int _lastFrame = -1;
         private int _lastLoopCount = 0;
         private readonly HashSet<int> _firedFrames = new HashSet<int>();
+        private int _lastStateNameHash = 0; // Track which Animator state is active
 
         // For SpawnPrefab / DestroySpawned
         private readonly List<GameObject> _spawnedInstances = new List<GameObject>();
@@ -34,6 +43,9 @@ namespace AnimationDirector
 
         // Cache for fast id -> GameObject lookup
         private Dictionary<string, GameObject> _bindingLookup;
+        
+        // Cache for fast clip -> sequence lookup
+        private Dictionary<AnimationClip, AnimationActionSequence> _sequenceLookup;
 
         private void Reset()
         {
@@ -47,18 +59,39 @@ namespace AnimationDirector
                 animator = GetComponent<Animator>();
             }
 
+            // Migrate legacy single sequence to list if needed
+            if (sequence != null && !sequences.Contains(sequence))
+            {
+                sequences.Add(sequence);
+            }
+
+            BuildSequenceLookup();
             BuildBindingLookup();
+        }
+        
+        private void OnEnable()
+        {
+            // Rebuild lookups when component is enabled
+            BuildSequenceLookup();
         }
 
         private void Update()
         {
-            if (sequence == null || sequence.targetClip == null)
-                return;
-
             if (animator == null)
                 return;
 
-            EnsureClipCached();
+            // Find the sequence that matches the currently playing clip
+            AnimationActionSequence matchingSequence = FindMatchingSequence();
+            if (matchingSequence == null || matchingSequence.targetClip == null)
+                return;
+
+            // Update active sequence if it changed
+            if (_activeSequence != matchingSequence)
+            {
+                _activeSequence = matchingSequence;
+                EnsureClipCached();
+            }
+
             if (_clip == null)
                 return;
 
@@ -66,17 +99,50 @@ namespace AnimationDirector
             if (stateInfo.length <= 0f)
                 return;
 
+            // CRITICAL: Check if the Animator has transitioned to a different state.
+            // This prevents firing keyframes when playing a different animation.
+            int currentStateNameHash = stateInfo.fullPathHash;
+            if (currentStateNameHash != _lastStateNameHash)
+            {
+                // State changed - reset everything
+                _lastStateNameHash = currentStateNameHash;
+                _lastFrame = -1;
+                _lastLoopCount = 0;
+                _firedFrames.Clear();
+            }
+
+            // Check if the currently playing clip actually matches our target clip.
+            // We can't directly get the clip from AnimatorStateInfo, but we can check
+            // if the state length matches our target clip length (close enough for V1).
+            // If lengths don't match, this state is playing a different clip - don't execute.
+            float lengthDiff = Mathf.Abs(stateInfo.length - _clip.length);
+            if (lengthDiff > 0.01f) // Allow small floating point differences
+            {
+                // Different clip is playing - don't execute keyframes
+                return;
+            }
+
             // normalizedTime may be >1 for looping clips; track loop count.
             float normalizedTime = stateInfo.normalizedTime;
             int loopCount = Mathf.FloorToInt(normalizedTime);
             float t = Mathf.Repeat(normalizedTime, 1f);
 
-            // Reset when clip loops or changes.
-            if (loopCount != _lastLoopCount)
+            // Reset when clip loops, BUT only if the clip is actually set to loop.
+            // For non-looping clips, normalizedTime will stay at 1.0+ after completion.
+            // We only want to reset on actual loops, not when a non-looping clip finishes.
+            bool isLooping = _clip.isLooping;
+            if (isLooping && loopCount != _lastLoopCount)
             {
+                // Clip looped - reset fired frames for next loop
                 _lastLoopCount = loopCount;
                 _lastFrame = -1;
                 _firedFrames.Clear();
+            }
+            else if (!isLooping && normalizedTime >= 1.0f)
+            {
+                // Non-looping clip finished - don't reset, just stop executing
+                // (firedFrames stays populated so keyframes won't fire again)
+                return;
             }
 
             int totalFrames = Mathf.Max(1, Mathf.RoundToInt(_clip.length * _clip.frameRate));
@@ -88,8 +154,8 @@ namespace AnimationDirector
 
             _lastFrame = currentFrame;
 
-            // Fetch keyframes for this frame and execute any that haven't fired yet this loop.
-            sequence.GetKeyframesForFrame(currentFrame, _frameKeyframes);
+            // Fetch keyframes for this frame and execute any that haven't fired yet this playthrough.
+            _activeSequence.GetKeyframesForFrame(currentFrame, _frameKeyframes);
             if (_frameKeyframes.Count == 0)
                 return;
 
@@ -99,7 +165,7 @@ namespace AnimationDirector
                 if (kf == null)
                     continue;
 
-                // Optionally we could track by index instead of frame, but per-frame is fine for V1.
+                // Skip if this frame already fired this playthrough
                 if (_firedFrames.Contains(kf.frame))
                     continue;
 
@@ -108,20 +174,81 @@ namespace AnimationDirector
             }
         }
 
+        /// <summary>
+        /// Finds the sequence that matches the currently playing animation clip.
+        /// </summary>
+        private AnimationActionSequence FindMatchingSequence()
+        {
+            if (animator == null)
+                return null;
+
+            var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            if (stateInfo.length <= 0f)
+                return null;
+
+            // Rebuild lookup if sequences list changed
+            if (_sequenceLookup == null || _sequenceLookup.Count != sequences.Count)
+            {
+                BuildSequenceLookup();
+            }
+
+            // Find sequence whose target clip length matches the current state length
+            // (We can't directly get the clip from AnimatorStateInfo, so we match by length)
+            foreach (var seq in sequences)
+            {
+                if (seq == null || seq.targetClip == null)
+                    continue;
+
+                float lengthDiff = Mathf.Abs(stateInfo.length - seq.targetClip.length);
+                if (lengthDiff <= 0.01f) // Allow small floating point differences
+                {
+                    return seq;
+                }
+            }
+
+            return null;
+        }
+
+        private void BuildSequenceLookup()
+        {
+            if (_sequenceLookup == null)
+            {
+                _sequenceLookup = new Dictionary<AnimationClip, AnimationActionSequence>();
+            }
+            else
+            {
+                _sequenceLookup.Clear();
+            }
+
+            if (sequences == null)
+                return;
+
+            for (int i = 0; i < sequences.Count; i++)
+            {
+                var seq = sequences[i];
+                if (seq == null || seq.targetClip == null)
+                    continue;
+
+                // If multiple sequences target the same clip, the last one wins
+                _sequenceLookup[seq.targetClip] = seq;
+            }
+        }
+
         private void EnsureClipCached()
         {
-            if (sequence == null)
+            if (_activeSequence == null)
             {
                 _clip = null;
                 return;
             }
 
-            if (_clip == sequence.targetClip)
+            if (_clip == _activeSequence.targetClip)
                 return;
 
-            _clip = sequence.targetClip;
+            _clip = _activeSequence.targetClip;
             _lastFrame = -1;
             _lastLoopCount = 0;
+            _lastStateNameHash = 0; // Reset state tracking
             _firedFrames.Clear();
             _spawnedInstances.Clear();
             BuildBindingLookup();
@@ -306,12 +433,46 @@ namespace AnimationDirector
 
         /// <summary>
         /// Assigns the Animator and sequence at runtime if needed.
+        /// (Legacy method - use AddSequence or SetSequences instead)
         /// </summary>
         public void SetData(Animator targetAnimator, AnimationActionSequence actionSequence)
         {
             animator = targetAnimator;
-            sequence = actionSequence;
-            EnsureClipCached();
+            if (actionSequence != null && !sequences.Contains(actionSequence))
+            {
+                sequences.Add(actionSequence);
+                BuildSequenceLookup();
+            }
+        }
+        
+        /// <summary>
+        /// Adds a sequence to the list. If a sequence for the same clip already exists, it will be replaced.
+        /// </summary>
+        public void AddSequence(AnimationActionSequence sequence)
+        {
+            if (sequence == null)
+                return;
+
+            // Remove existing sequence for the same clip if it exists
+            for (int i = sequences.Count - 1; i >= 0; i--)
+            {
+                if (sequences[i] != null && sequences[i].targetClip == sequence.targetClip)
+                {
+                    sequences.RemoveAt(i);
+                }
+            }
+
+            sequences.Add(sequence);
+            BuildSequenceLookup();
+        }
+        
+        /// <summary>
+        /// Sets the entire sequences list at runtime.
+        /// </summary>
+        public void SetSequences(List<AnimationActionSequence> newSequences)
+        {
+            sequences = newSequences ?? new List<AnimationActionSequence>();
+            BuildSequenceLookup();
         }
 
         [System.Serializable]

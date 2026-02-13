@@ -638,13 +638,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimationDirector.ActionSequencePlayer
   animator: {fileID: 1220848138}
-  sequence: {fileID: 11400000, guid: 18709723dc22fd94299dce997704a9ab, type: 2}
+  sequences:
+  - {fileID: 11400000, guid: 18709723dc22fd94299dce997704a9ab, type: 2}
+  - {fileID: 11400000, guid: 02f1eaf7b8e8de34aae9ec81b6448b0c, type: 2}
+  sequence: {fileID: 0}
   logActions: 1
   targetBindings:
   - id: SlashGreen
     target: {fileID: 988210419}
   - id: SwordSpawn
     target: {fileID: 753009206}
+  - id: StartPuff
+    target: {fileID: 1487846748}
 --- !u!1001 &1450701440
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -730,6 +735,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8a43d9f68490c374a93a9e8085555c02, type: 3}
+--- !u!1 &1487846748 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3789122199548263463, guid: 2d8c2dfad6d208641b2b0a3b26af5960, type: 3}
+  m_PrefabInstance: {fileID: 230030782}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &1599858369 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3104461415564491321, guid: 61b3e3801d56a3f429556c96ea2f07d6, type: 3}
