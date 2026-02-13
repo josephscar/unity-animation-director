@@ -17,6 +17,9 @@ namespace AnimationDirector
         [Header("Debug")]
         [SerializeField] private bool logActions;
 
+        [Header("Target Bindings (for Enable/Disable)")]
+        [SerializeField] private List<TargetBinding> targetBindings = new List<TargetBinding>();
+
         // Runtime tracking
         private AnimationClip _clip;
         private int _lastFrame = -1;
@@ -29,6 +32,9 @@ namespace AnimationDirector
         // Buffer reused for per-frame lookup
         private readonly List<ActionKeyframe> _frameKeyframes = new List<ActionKeyframe>(8);
 
+        // Cache for fast id -> GameObject lookup
+        private Dictionary<string, GameObject> _bindingLookup;
+
         private void Reset()
         {
             animator = GetComponent<Animator>();
@@ -40,6 +46,8 @@ namespace AnimationDirector
             {
                 animator = GetComponent<Animator>();
             }
+
+            BuildBindingLookup();
         }
 
         private void Update()
@@ -116,6 +124,40 @@ namespace AnimationDirector
             _lastLoopCount = 0;
             _firedFrames.Clear();
             _spawnedInstances.Clear();
+            BuildBindingLookup();
+        }
+
+        private void BuildBindingLookup()
+        {
+            if (targetBindings == null)
+            {
+                _bindingLookup = null;
+                return;
+            }
+
+            if (_bindingLookup == null)
+            {
+                _bindingLookup = new Dictionary<string, GameObject>();
+            }
+            else
+            {
+                _bindingLookup.Clear();
+            }
+
+            for (int i = 0; i < targetBindings.Count; i++)
+            {
+                var binding = targetBindings[i];
+                if (binding == null)
+                    continue;
+
+                if (string.IsNullOrEmpty(binding.id) || binding.target == null)
+                    continue;
+
+                if (!_bindingLookup.ContainsKey(binding.id))
+                {
+                    _bindingLookup.Add(binding.id, binding.target);
+                }
+            }
         }
 
         private void ExecuteKeyframe(ActionKeyframe keyframe)
@@ -190,14 +232,36 @@ namespace AnimationDirector
 
         private void HandleToggleObject(ActionKeyframe keyframe, bool enabled)
         {
-            if (keyframe.targetObject == null)
+            GameObject target = null;
+
+            // Prefer id-based binding so ScriptableObject does not need scene references.
+            if (!string.IsNullOrEmpty(keyframe.targetId))
+            {
+                if (_bindingLookup == null)
+                {
+                    BuildBindingLookup();
+                }
+
+                if (_bindingLookup != null)
+                {
+                    _bindingLookup.TryGetValue(keyframe.targetId, out target);
+                }
+            }
+
+            // Fallback: direct reference (works only for asset objects, not scene instances).
+            if (target == null)
+            {
+                target = keyframe.targetObject;
+            }
+
+            if (target == null)
                 return;
 
-            keyframe.targetObject.SetActive(enabled);
+            target.SetActive(enabled);
 
             if (logActions)
             {
-                Debug.Log($"[ActionSequencePlayer] Set '{keyframe.targetObject.name}' active={enabled} at frame {keyframe.frame}.", this);
+                Debug.Log($"[ActionSequencePlayer] Set '{target.name}' active={enabled} at frame {keyframe.frame}.", this);
             }
         }
 
@@ -228,6 +292,13 @@ namespace AnimationDirector
             animator = targetAnimator;
             sequence = actionSequence;
             EnsureClipCached();
+        }
+
+        [System.Serializable]
+        public class TargetBinding
+        {
+            public string id;
+            public GameObject target;
         }
     }
 }

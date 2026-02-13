@@ -259,6 +259,7 @@ namespace AnimationDirector.Editor
             var lifetimeProp = kfProp.FindPropertyRelative("lifetime");
             var soundProp = kfProp.FindPropertyRelative("sound");
             var targetObjectProp = kfProp.FindPropertyRelative("targetObject");
+            var targetIdProp = kfProp.FindPropertyRelative("targetId");
 
             // Frame field
             EditorGUI.BeginChangeCheck();
@@ -302,7 +303,8 @@ namespace AnimationDirector.Editor
 
                 case ActionType.EnableObject:
                 case ActionType.DisableObject:
-                    EditorGUILayout.PropertyField(targetObjectProp, new GUIContent("Target Object"));
+                    EditorGUILayout.PropertyField(targetIdProp, new GUIContent("Target Id"));
+                    EditorGUILayout.PropertyField(targetObjectProp, new GUIContent("Target Object (asset only)"));
                     break;
 
                 case ActionType.DestroySpawned:

@@ -24,7 +24,11 @@ namespace AnimationDirector
         public AudioClip sound;
 
         [Header("Enable / Disable Object")]
+        [Tooltip("Optional direct asset reference. For scene objects, prefer Target Id and configure bindings on ActionSequencePlayer.")]
         public GameObject targetObject;
+
+        [Tooltip("Logical id used to look up a scene object via ActionSequencePlayer bindings.")]
+        public string targetId;
     }
 }
 
