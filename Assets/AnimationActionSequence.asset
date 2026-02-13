@@ -16,10 +16,10 @@ MonoBehaviour:
   keyframes:
   - frame: 0
     type: 0
-    prefab: {fileID: 0}
+    prefab: {fileID: 3992058561654064293, guid: 13c990b8270c70b4c9f196019286028c, type: 3}
     anchor:
       space: 0
       customTransform: {fileID: 0}
-    lifetime: 0
+    lifetime: 6.84
     sound: {fileID: 0}
     targetObject: {fileID: 0}
