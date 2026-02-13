@@ -17,6 +17,9 @@ namespace AnimationDirector.Editor
         private int _totalFrames;
 
         private readonly List<ActionKeyframe> _frameBuffer = new List<ActionKeyframe>(8);
+        
+        // Flag to defer sorting until after GUI pass
+        private bool _needsSortAfterGUI;
 
         [MenuItem("Window/Animation Director")]
         public static void ShowWindow()
@@ -71,6 +74,16 @@ namespace AnimationDirector.Editor
             }
 
             _serializedSequence.ApplyModifiedProperties();
+            
+            // Sort and rebuild AFTER all GUI is drawn to avoid invalidating SerializedProperty references
+            if (_needsSortAfterGUI && _sequence != null)
+            {
+                _sequence.SortByFrame();
+                EditorUtility.SetDirty(_sequence);
+                RebuildSerializedObject();
+                AssetDatabase.SaveAssets();
+                _needsSortAfterGUI = false;
+            }
         }
 
         #region Sequence selection
@@ -191,6 +204,10 @@ namespace AnimationDirector.Editor
             _sequence.SortByFrame();
 
             EditorUtility.SetDirty(_sequence);
+            
+            // Rebuild SerializedObject after modifying list directly
+            RebuildSerializedObject();
+            
             AssetDatabase.SaveAssets();
         }
 
@@ -233,7 +250,7 @@ namespace AnimationDirector.Editor
                         }
                     }
 
-                    DrawSingleKeyframe(element);
+                    DrawSingleKeyframe(element, i);
                 }
             }
 
@@ -241,16 +258,13 @@ namespace AnimationDirector.Editor
             {
                 keyframesProp.DeleteArrayElementAtIndex(removeIndex);
                 _serializedSequence.ApplyModifiedProperties();
-                if (_sequence != null)
-                {
-                    _sequence.SortByFrame();
-                    EditorUtility.SetDirty(_sequence);
-                    AssetDatabase.SaveAssets();
-                }
+                
+                // Mark that we need to sort AFTER the GUI pass completes
+                _needsSortAfterGUI = true;
             }
         }
 
-        private void DrawSingleKeyframe(SerializedProperty kfProp)
+        private void DrawSingleKeyframe(SerializedProperty kfProp, int keyframeIndex)
         {
             var frameProp = kfProp.FindPropertyRelative("frame");
             var typeProp = kfProp.FindPropertyRelative("type");
@@ -263,26 +277,51 @@ namespace AnimationDirector.Editor
             var targetIdProp = kfProp.FindPropertyRelative("targetId");
             var detachOnEnableProp = kfProp.FindPropertyRelative("detachOnEnable");
 
-            // Frame field
+            // Frame field - use DelayedIntField so changes only apply when user presses Enter or clicks away
+            // This prevents sorting/rebuilding while user is still typing
+            int currentFrameValue = frameProp.intValue;
+            if (_sequence != null && _sequence.keyframes != null && keyframeIndex >= 0 && keyframeIndex < _sequence.keyframes.Count)
+            {
+                currentFrameValue = _sequence.keyframes[keyframeIndex].frame;
+            }
+            
             EditorGUI.BeginChangeCheck();
-            EditorGUILayout.PropertyField(frameProp);
+            int newFrameValue = EditorGUILayout.DelayedIntField("Frame", currentFrameValue);
             if (EditorGUI.EndChangeCheck())
             {
+                // Clamp the value
                 if (_totalFrames > 0)
                 {
-                    frameProp.intValue = Mathf.Clamp(frameProp.intValue, 0, Mathf.Max(0, _totalFrames - 1));
+                    newFrameValue = Mathf.Clamp(newFrameValue, 0, Mathf.Max(0, _totalFrames - 1));
                 }
                 else
                 {
-                    frameProp.intValue = Mathf.Max(0, frameProp.intValue);
+                    newFrameValue = Mathf.Max(0, newFrameValue);
                 }
 
-                _serializedSequence.ApplyModifiedProperties();
-                if (_sequence != null)
+                // CRITICAL: Work directly with the actual keyframe object, not SerializedProperty
+                // This ensures we modify the correct keyframe even after sorting
+                if (_sequence != null && _sequence.keyframes != null && keyframeIndex >= 0 && keyframeIndex < _sequence.keyframes.Count)
                 {
+                    // Get the actual keyframe object at this index BEFORE sorting
+                    var keyframe = _sequence.keyframes[keyframeIndex];
+                    
+                    // Update the frame value on the actual object
+                    keyframe.frame = newFrameValue;
+                    
+                    // Sort the list (this will reorder it)
                     _sequence.SortByFrame();
+                    
+                    // Rebuild SerializedObject so properties point to correct elements
+                    RebuildSerializedObject();
+                    
                     EditorUtility.SetDirty(_sequence);
                     AssetDatabase.SaveAssets();
+                    
+                    // Force repaint so GUI updates with new order - this will restart the GUI loop
+                    // with the correctly sorted list
+                    Repaint();
+                    return; // Exit early since we've rebuilt everything
                 }
             }
 
