@@ -34,6 +34,7 @@ namespace AnimationDirector
         private int _lastLoopCount = 0;
         private readonly HashSet<int> _firedFrames = new HashSet<int>();
         private int _lastStateNameHash = 0; // Track which Animator state is active
+        private float _lastNormalizedTime = -1f; // Track time to detect replays without state changes
 
         // For SpawnPrefab / DestroySpawned
         private readonly List<GameObject> _spawnedInstances = new List<GameObject>();
@@ -108,6 +109,7 @@ namespace AnimationDirector
                 _lastStateNameHash = currentStateNameHash;
                 _lastFrame = -1;
                 _lastLoopCount = 0;
+                _lastNormalizedTime = -1f;
                 _firedFrames.Clear();
             }
 
@@ -125,12 +127,20 @@ namespace AnimationDirector
             // normalizedTime may be >1 for looping clips; track loop count.
             float normalizedTime = stateInfo.normalizedTime;
             int loopCount = Mathf.FloorToInt(normalizedTime);
-            float t = Mathf.Repeat(normalizedTime, 1f);
+            
+            // Detect replays without a state change (e.g., re-entering the same state)
+            if (_lastNormalizedTime >= 0f && normalizedTime < _lastNormalizedTime)
+            {
+                _lastFrame = -1;
+                _lastLoopCount = 0;
+                _firedFrames.Clear();
+            }
+            _lastNormalizedTime = normalizedTime;
 
             // Reset when clip loops, BUT only if the clip is actually set to loop.
             // For non-looping clips, normalizedTime will stay at 1.0+ after completion.
             // We only want to reset on actual loops, not when a non-looping clip finishes.
-            bool isLooping = _clip.isLooping;
+            bool isLooping = stateInfo.loop;
             if (isLooping && loopCount != _lastLoopCount)
             {
                 // Clip looped - reset fired frames for next loop
@@ -138,12 +148,8 @@ namespace AnimationDirector
                 _lastFrame = -1;
                 _firedFrames.Clear();
             }
-            else if (!isLooping && normalizedTime >= 1.0f)
-            {
-                // Non-looping clip finished - don't reset, just stop executing
-                // (firedFrames stays populated so keyframes won't fire again)
-                return;
-            }
+
+            float t = isLooping ? Mathf.Repeat(normalizedTime, 1f) : Mathf.Clamp01(normalizedTime);
 
             int totalFrames = Mathf.Max(1, Mathf.RoundToInt(_clip.length * _clip.frameRate));
             int currentFrame = Mathf.FloorToInt(t * totalFrames);
@@ -249,6 +255,7 @@ namespace AnimationDirector
             _lastFrame = -1;
             _lastLoopCount = 0;
             _lastStateNameHash = 0; // Reset state tracking
+            _lastNormalizedTime = -1f;
             _firedFrames.Clear();
             _spawnedInstances.Clear();
             BuildBindingLookup();
@@ -483,5 +490,3 @@ namespace AnimationDirector
         }
     }
 }
-
-

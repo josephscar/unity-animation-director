@@ -2,6 +2,12 @@
 
 All notable changes to Animation Director will be documented in this file.
 
+## [1.0.1] - 2026-02-15
+
+### Fixed
+- Non-looping animations now execute action keyframes reliably (no early bailout after completion).
+- Replays of the same state now reset keyframe firing even if the state hash doesn't change.
+
 ## [1.0.0] - 2026-02-13
 
 ### Added
@@ -20,4 +26,3 @@ All notable changes to Animation Director will be documented in this file.
 - Delayed frame editing (updates on Enter/click away)
 - Automatic sequence matching based on playing animation
 - Target binding system for Enable/Disable actions
-

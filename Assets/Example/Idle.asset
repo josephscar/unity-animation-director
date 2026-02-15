@@ -10,7 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 91c3803da229fba458706ec9d9a953f8, type: 3}
-  m_Name: InAIr Sequence
+  m_Name: Idle
   m_EditorClassIdentifier: Assembly-CSharp::AnimationDirector.AnimationActionSequence
-  targetClip: {fileID: 7400000, guid: bbb5d2ab18356e04eb8c765c9e369450, type: 2}
-  keyframes: []
+  targetClip: {fileID: 7400000, guid: 573e231b81b47bd45b7f9a68715fb8a8, type: 2}
+  keyframes:
+  - frame: 14
+    type: 3
+    prefab: {fileID: 0}
+    anchor:
+      space: 0
+      customTransform: {fileID: 0}
+    parentToAnchor: 1
+    lifetime: 0
+    sound: {fileID: 0}
+    targetObject: {fileID: 0}
+    targetId: DisableMesh
+    detachOnEnable: 0
