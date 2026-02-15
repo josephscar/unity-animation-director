@@ -48,7 +48,7 @@ namespace AnimationDirector.Editor
             {
                 EditorGUILayout.HelpBox(
                     "Assign an Animation Action Sequence asset, or create a new one via:\n" +
-                    "Assets → Create → Animation Director → Action Sequence.",
+                    "Assets -> Create -> Animation Director -> Action Sequence.",
                     MessageType.Info);
                 return;
             }

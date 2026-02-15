@@ -1,0 +1,14 @@
+# Unity generated files
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+
+# Keep .meta files (required for Unity packages)
+# *.meta
+
+# OS files
+.DS_Store
+Thumbs.db
+

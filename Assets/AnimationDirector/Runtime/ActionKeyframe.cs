@@ -34,7 +34,7 @@ namespace AnimationDirector
         [Tooltip("Logical id used to look up a scene object via ActionSequencePlayer bindings.")]
         public string targetId;
 
-        [Tooltip("If true and this keyframe is enabling the object, it will be detached from its parent so it no longer follows that parent’s movement.")]
+        [Tooltip("If true and this keyframe is enabling the object, it will be detached from its parent so it no longer follows that parent's movement.")]
         public bool detachOnEnable;
     }
 }
