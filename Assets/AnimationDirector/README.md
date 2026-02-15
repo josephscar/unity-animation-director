@@ -2,6 +2,8 @@
 
 Frame-accurate, data-driven animation action sequencer for Unity. Replaces fragile Animation Events with ScriptableObject timelines that trigger prefabs, sounds, and object state changes in sync with AnimationClips.
 
+Current version: 1.0.1
+
 ## Features
 
 - **Frame-Based Keyframes**: Integer frame numbers for precise timing
@@ -16,7 +18,9 @@ Frame-accurate, data-driven animation action sequencer for Unity. Replaces fragi
 ### Option 1: Unity Package Manager (Git URL)
 1. Open Unity Package Manager (Window -> Package Manager)
 2. Click the `+` button -> "Add package from git URL"
-3. Enter: `https://github.com/josephscar/unity-animation-director.git?path=/Assets/AnimationDirector`
+3. Enter: `https://github.com/josephscar/unity-animation-director.git?path=/Assets/AnimationDirector#v1.0.1`
+
+Note: If you're developing inside the package repo, don't add the Git URL to the same project. Use the local copy instead to avoid GUID conflicts.
 
 ### Option 2: Unity Package (.unitypackage)
 1. Export the `Assets/AnimationDirector` folder as a `.unitypackage`
