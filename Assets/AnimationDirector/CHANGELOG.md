@@ -2,6 +2,11 @@
 
 All notable changes to Animation Director will be documented in this file.
 
+## [1.0.2] - 2026-02-16
+- Fix clip matching to use the actual Animator clip (better blend tree/retimed state support)
+- Allow multiple keyframes on the same frame to fire correctly
+- Catch up keyframes when animation time jumps forward (no missed early frames)
+
 ## [1.0.1] - 2026-02-15
 
 ### Fixed

@@ -14,7 +14,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AnimationDirector.AnimationActionSequence
   targetClip: {fileID: 7400000, guid: 573e231b81b47bd45b7f9a68715fb8a8, type: 2}
   keyframes:
-  - frame: 14
+  - frame: 3
+    type: 1
+    prefab: {fileID: 0}
+    anchor:
+      space: 0
+      customTransform: {fileID: 0}
+    parentToAnchor: 1
+    lifetime: 0
+    sound: {fileID: 8300000, guid: e3e10a7ae4981004c948241efb5fedfa, type: 3}
+    targetObject: {fileID: 0}
+    targetId: 
+    detachOnEnable: 0
+  - frame: 30
     type: 3
     prefab: {fileID: 0}
     anchor:

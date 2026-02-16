@@ -1,6 +1,6 @@
 {
   "name": "com.animationdirector.tool",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "displayName": "Animation Director",
   "description": "Frame-accurate, data-driven animation action sequencer for Unity. Replaces fragile Animation Events with ScriptableObject timelines that trigger prefabs, sounds, and object state changes in sync with AnimationClips.",
   "unity": "6000.3",

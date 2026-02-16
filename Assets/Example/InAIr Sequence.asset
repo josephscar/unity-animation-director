@@ -26,3 +26,15 @@ MonoBehaviour:
     targetObject: {fileID: 0}
     targetId: DisableMesh
     detachOnEnable: 0
+  - frame: 11
+    type: 1
+    prefab: {fileID: 0}
+    anchor:
+      space: 0
+      customTransform: {fileID: 0}
+    parentToAnchor: 1
+    lifetime: 0
+    sound: {fileID: 8300000, guid: e3e10a7ae4981004c948241efb5fedfa, type: 3}
+    targetObject: {fileID: 0}
+    targetId: 
+    detachOnEnable: 0

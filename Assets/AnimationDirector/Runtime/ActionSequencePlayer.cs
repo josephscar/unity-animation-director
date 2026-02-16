@@ -32,7 +32,7 @@ namespace AnimationDirector
         private AnimationActionSequence _activeSequence; // Currently active sequence
         private int _lastFrame = -1;
         private int _lastLoopCount = 0;
-        private readonly HashSet<int> _firedFrames = new HashSet<int>();
+        private readonly HashSet<ActionKeyframe> _firedKeyframes = new HashSet<ActionKeyframe>();
         private int _lastStateNameHash = 0; // Track which Animator state is active
         private float _lastNormalizedTime = -1f; // Track time to detect replays without state changes
 
@@ -81,8 +81,12 @@ namespace AnimationDirector
             if (animator == null)
                 return;
 
+            // Find the actual clip Unity is playing (handles blend trees and retimed states).
+            if (!TryGetCurrentClip(out var currentClip))
+                return;
+
             // Find the sequence that matches the currently playing clip
-            AnimationActionSequence matchingSequence = FindMatchingSequence();
+            AnimationActionSequence matchingSequence = FindMatchingSequence(currentClip);
             if (matchingSequence == null || matchingSequence.targetClip == null)
                 return;
 
@@ -110,19 +114,12 @@ namespace AnimationDirector
                 _lastFrame = -1;
                 _lastLoopCount = 0;
                 _lastNormalizedTime = -1f;
-                _firedFrames.Clear();
+                _firedKeyframes.Clear();
             }
 
-            // Check if the currently playing clip actually matches our target clip.
-            // We can't directly get the clip from AnimatorStateInfo, but we can check
-            // if the state length matches our target clip length (close enough for V1).
-            // If lengths don't match, this state is playing a different clip - don't execute.
-            float lengthDiff = Mathf.Abs(stateInfo.length - _clip.length);
-            if (lengthDiff > 0.01f) // Allow small floating point differences
-            {
-                // Different clip is playing - don't execute keyframes
+            // If Unity is currently playing a different clip (e.g., blend tree), don't execute.
+            if (currentClip != _clip)
                 return;
-            }
 
             // normalizedTime may be >1 for looping clips; track loop count.
             float normalizedTime = stateInfo.normalizedTime;
@@ -133,7 +130,7 @@ namespace AnimationDirector
             {
                 _lastFrame = -1;
                 _lastLoopCount = 0;
-                _firedFrames.Clear();
+                _firedKeyframes.Clear();
             }
             _lastNormalizedTime = normalizedTime;
 
@@ -146,7 +143,7 @@ namespace AnimationDirector
                 // Clip looped - reset fired frames for next loop
                 _lastLoopCount = loopCount;
                 _lastFrame = -1;
-                _firedFrames.Clear();
+                _firedKeyframes.Clear();
             }
 
             float t = isLooping ? Mathf.Repeat(normalizedTime, 1f) : Mathf.Clamp01(normalizedTime);
@@ -158,38 +155,47 @@ namespace AnimationDirector
             if (currentFrame == _lastFrame)
                 return;
 
-            _lastFrame = currentFrame;
+            int startFrame = _lastFrame < 0 ? 0 : _lastFrame + 1;
+            int endFrame = currentFrame;
 
-            // Fetch keyframes for this frame and execute any that haven't fired yet this playthrough.
-            _activeSequence.GetKeyframesForFrame(currentFrame, _frameKeyframes);
-            if (_frameKeyframes.Count == 0)
-                return;
-
-            for (int i = 0; i < _frameKeyframes.Count; i++)
+            if (endFrame < startFrame)
             {
-                var kf = _frameKeyframes[i];
-                if (kf == null)
-                    continue;
-
-                // Skip if this frame already fired this playthrough
-                if (_firedFrames.Contains(kf.frame))
-                    continue;
-
-                ExecuteKeyframe(kf);
-                _firedFrames.Add(kf.frame);
+                // Time jumped backwards without a reset; restart from frame 0.
+                _firedKeyframes.Clear();
+                startFrame = 0;
             }
+
+            for (int frame = startFrame; frame <= endFrame; frame++)
+            {
+                // Fetch keyframes for this frame and execute any that haven't fired yet this playthrough.
+                _activeSequence.GetKeyframesForFrame(frame, _frameKeyframes);
+                if (_frameKeyframes.Count == 0)
+                    continue;
+
+                for (int i = 0; i < _frameKeyframes.Count; i++)
+                {
+                    var kf = _frameKeyframes[i];
+                    if (kf == null)
+                        continue;
+
+                    // Skip if this keyframe already fired this playthrough
+                    if (_firedKeyframes.Contains(kf))
+                        continue;
+
+                    ExecuteKeyframe(kf);
+                    _firedKeyframes.Add(kf);
+                }
+            }
+
+            _lastFrame = currentFrame;
         }
 
         /// <summary>
         /// Finds the sequence that matches the currently playing animation clip.
         /// </summary>
-        private AnimationActionSequence FindMatchingSequence()
+        private AnimationActionSequence FindMatchingSequence(AnimationClip currentClip)
         {
-            if (animator == null)
-                return null;
-
-            var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-            if (stateInfo.length <= 0f)
+            if (currentClip == null)
                 return null;
 
             // Rebuild lookup if sequences list changed
@@ -198,21 +204,53 @@ namespace AnimationDirector
                 BuildSequenceLookup();
             }
 
-            // Find sequence whose target clip length matches the current state length
-            // (We can't directly get the clip from AnimatorStateInfo, so we match by length)
-            foreach (var seq in sequences)
+            // Prefer exact clip match (fast and robust).
+            if (_sequenceLookup != null && _sequenceLookup.TryGetValue(currentClip, out var directMatch))
             {
+                return directMatch;
+            }
+
+            // Fallback: length-based match for older data or unusual setups.
+            for (int i = 0; i < sequences.Count; i++)
+            {
+                var seq = sequences[i];
                 if (seq == null || seq.targetClip == null)
                     continue;
 
-                float lengthDiff = Mathf.Abs(stateInfo.length - seq.targetClip.length);
-                if (lengthDiff <= 0.01f) // Allow small floating point differences
+                float lengthDiff = Mathf.Abs(currentClip.length - seq.targetClip.length);
+                if (lengthDiff <= 0.01f)
                 {
                     return seq;
                 }
             }
 
             return null;
+        }
+
+        private bool TryGetCurrentClip(out AnimationClip clip)
+        {
+            clip = null;
+
+            if (animator == null)
+                return false;
+
+            var clips = animator.GetCurrentAnimatorClipInfo(0);
+            if (clips == null || clips.Length == 0)
+                return false;
+
+            int bestIndex = 0;
+            float bestWeight = clips[0].weight;
+            for (int i = 1; i < clips.Length; i++)
+            {
+                if (clips[i].weight > bestWeight)
+                {
+                    bestWeight = clips[i].weight;
+                    bestIndex = i;
+                }
+            }
+
+            clip = clips[bestIndex].clip;
+            return clip != null;
         }
 
         private void BuildSequenceLookup()
@@ -256,7 +294,7 @@ namespace AnimationDirector
             _lastLoopCount = 0;
             _lastStateNameHash = 0; // Reset state tracking
             _lastNormalizedTime = -1f;
-            _firedFrames.Clear();
+            _firedKeyframes.Clear();
             _spawnedInstances.Clear();
             BuildBindingLookup();
         }
@@ -296,6 +334,13 @@ namespace AnimationDirector
 
         private void ExecuteKeyframe(ActionKeyframe keyframe)
         {
+            if (logActions)
+            {
+                string seqName = _activeSequence != null ? _activeSequence.name : "None";
+                string clipName = _clip != null ? _clip.name : "None";
+                Debug.Log($"[ActionSequencePlayer] Execute {keyframe.type} frame={keyframe.frame} seq='{seqName}' clip='{clipName}'.", this);
+            }
+
             switch (keyframe.type)
             {
                 case ActionType.SpawnPrefab:
@@ -367,7 +412,13 @@ namespace AnimationDirector
         private void HandlePlaySound(ActionKeyframe keyframe)
         {
             if (keyframe.sound == null)
+            {
+                if (logActions)
+                {
+                    Debug.LogWarning($"[ActionSequencePlayer] PlaySound has no AudioClip at frame {keyframe.frame}.", this);
+                }
                 return;
+            }
 
             // Use PlayClipAtPoint for simplicity in V1.
             AudioSource.PlayClipAtPoint(keyframe.sound, transform.position);
